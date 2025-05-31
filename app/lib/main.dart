@@ -1,9 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'ex1.dart';
-import 'ex2.dart';
-import 'ex3.dart';
-import 'ex4.dart';
-import 'ex5.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   runApp(const MyApp());
@@ -15,171 +14,430 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lista de Exercícios 4',
+      title: 'Cadastro de Usuários',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const ExerciciosHome(),
-    );
-  }
-}
-
-class ExerciciosHome extends StatelessWidget {
-  const ExerciciosHome({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Lista de Exercícios')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          alignment: WrapAlignment.center,
-          children: [
-            _ExercicioButton(
-              title: 'Lista de Compras',
-              image: 'https://cdn-icons-png.flaticon.com/512/1011/1011286.png',
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              const ListaCompras(title: 'Lista de Compras'),
-                    ),
-                  ),
+        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.blueGrey,
+        ).copyWith(secondary: Colors.orangeAccent),
+        useMaterial3: true,
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueGrey[700],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
-            _ExercicioButton(
-              title: 'Tarefas Diárias',
-              image: 'https://cdn-icons-png.flaticon.com/512/5058/5058507.png',
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              const TarefasDiarias(title: 'Tarefas Diárias'),
-                    ),
-                  ),
-            ),
-            _ExercicioButton(
-              title: 'Notas Rápidas',
-              image: 'https://cdn-icons-png.flaticon.com/512/82/82071.png',
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              const NotasRapidas(title: 'Notas Rápidas'),
-                    ),
-                  ),
-            ),
-            _ExercicioButton(
-              title: 'Feedback',
-              image: 'https://cdn-icons-png.flaticon.com/512/813/813395.png',
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              const FormularioFeedback(title: 'Feedback'),
-                    ),
-                  ),
-            ),
-            _ExercicioButton(
-              title: 'Preferências',
-              image: 'https://cdn-icons-png.flaticon.com/512/4561/4561705.png',
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ConfiguracoesPreferencia(),
-                    ),
-                  ),
-            ),
-          ],
+          ),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8.0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blueGrey, width: 2.0),
+            borderRadius: BorderRadius.all(Radius.circular(8.0)),
+          ),
+          labelStyle: TextStyle(color: Colors.blueGrey),
         ),
       ),
+      home: const paginaInicial(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class _ExercicioButton extends StatefulWidget {
-  final String title;
-  final String image;
-  final VoidCallback onTap;
-
-  const _ExercicioButton({
-    required this.title,
-    required this.image,
-    required this.onTap,
-  });
+class paginaInicial extends StatefulWidget {
+  const paginaInicial({super.key});
 
   @override
-  _ExercicioButtonState createState() => _ExercicioButtonState();
+  State<paginaInicial> createState() => _paginaInicialEstado();
 }
 
-class _ExercicioButtonState extends State<_ExercicioButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
+class _paginaInicialEstado extends State<paginaInicial> {
+  final _controladorNome = TextEditingController();
+  final _controladorEmail = TextEditingController();
+  final _chaveFormulario = GlobalKey<FormState>();
 
-  Color get _backgroundColor {
-    if (_isPressed) {
-      return Colors.grey[500]!;
-    } else if (_isHovered) {
-      return Colors.grey[300]!;
+  List<Map<String, String>> _listaUsuariosCadastrados = [];
+  final String _nomeArquivo =
+      'dados_usuarios.json';
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarUsuariosDoArquivo();
+  }
+
+  Future<String> _obterCaminhoDiretorioDocumentos() async {
+    String caminhoDiretorio;
+    if (Platform.isLinux) {
+      final String? diretorioHome = Platform.environment['HOME'];
+      if (diretorioHome != null && diretorioHome.isNotEmpty) {
+        String caminhoDocumentosPtBr = p.join(diretorioHome, 'Documentos');
+        Directory dirPtBr = Directory(caminhoDocumentosPtBr);
+        if (await dirPtBr.exists() ||
+            Platform.localeName.toLowerCase().startsWith('pt_br')) {
+          caminhoDiretorio = caminhoDocumentosPtBr;
+        } else {
+          String caminhoDocumentsEn = p.join(diretorioHome, 'Documents');
+          Directory dirEn = Directory(caminhoDocumentsEn);
+          if (await dirEn.exists()) {
+            caminhoDiretorio = caminhoDocumentsEn;
+          } else {
+            caminhoDiretorio = caminhoDocumentosPtBr;
+          }
+        }
+      } else {
+        final Directory diretorioDocsApp =
+            await getApplicationDocumentsDirectory();
+        caminhoDiretorio = diretorioDocsApp.path;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Diretório HOME não encontrado. Usando ${diretorioDocsApp.path}',
+              ),
+            ),
+          );
+        }
+      }
     } else {
-      return Colors.white;
+      final Directory diretorioDocsApp =
+          await getApplicationDocumentsDirectory();
+      caminhoDiretorio = diretorioDocsApp.path;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Plataforma não é Linux. Salvando em ${diretorioDocsApp.path}',
+            ),
+          ),
+        );
+      }
+    }
+    final Directory dir = Directory(caminhoDiretorio);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return caminhoDiretorio;
+  }
+
+  Future<File> _obterArquivoLocal() async {
+    final caminhoDiretorio = await _obterCaminhoDiretorioDocumentos();
+    return File(p.join(caminhoDiretorio, _nomeArquivo));
+  }
+
+  Future<void> _persistirListaUsuarios(List<Map<String, String>> lista) async {
+    final arquivo = await _obterArquivoLocal();
+    const JsonEncoder encoder = JsonEncoder.withIndent('  ');
+    final String dadosJson = encoder.convert(lista);
+    await arquivo.writeAsString(dadosJson);
+  }
+
+  Future<void> _carregarUsuariosDoArquivo() async {
+    try {
+      final arquivo = await _obterArquivoLocal();
+      if (await arquivo.exists()) {
+        final String conteudoExistente = await arquivo.readAsString();
+        if (conteudoExistente.isNotEmpty) {
+          final List<dynamic> dadosDecodificados = jsonDecode(
+            conteudoExistente,
+          );
+          setState(() {
+            _listaUsuariosCadastrados = dadosDecodificados
+                .map((item) => Map<String, String>.from(item as Map))
+                .toList();
+          });
+        } else {
+          setState(() {
+            _listaUsuariosCadastrados = [];
+          });
+        }
+      } else {
+        setState(() {
+          _listaUsuariosCadastrados = [];
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Erro ao carregar dados: $e. Iniciando com lista vazia.',
+            ),
+          ),
+        );
+      }
+      setState(() {
+        _listaUsuariosCadastrados = [];
+      });
+    }
+  }
+
+  Future<void> _adicionarUsuario() async {
+    if (!_chaveFormulario.currentState!.validate()) {
+      return;
+    }
+    final String nome = _controladorNome.text;
+    final String email = _controladorEmail.text;
+    final Map<String, String> novoDado = {'nome': nome, 'email': email};
+
+    final listaTemporaria = List<Map<String, String>>.from(
+      _listaUsuariosCadastrados,
+    );
+    listaTemporaria.add(novoDado);
+
+    try {
+      await _persistirListaUsuarios(listaTemporaria);
+      setState(() {
+        _listaUsuariosCadastrados = listaTemporaria;
+      });
+      _controladorNome.clear();
+      _controladorEmail.clear();
+      FocusScope.of(context).unfocus();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Usuário "${novoDado['nome']}" adicionado!')),
+        );
+      }
+    } catch (erro) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar usuário: $erro')),
+        );
+      }
+    }
+  }
+
+  Future<void> _excluirUsuario(int index) async {
+    final usuarioParaExcluir = _listaUsuariosCadastrados[index];
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Exclusão'),
+          content: Text(
+            'Tem certeza que deseja excluir o usuário "${usuarioParaExcluir['nome']}"?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Excluir'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmado == true) {
+      final listaTemporaria = List<Map<String, String>>.from(
+        _listaUsuariosCadastrados,
+      );
+      listaTemporaria.removeAt(index);
+      try {
+        await _persistirListaUsuarios(listaTemporaria);
+        setState(() {
+          _listaUsuariosCadastrados = listaTemporaria;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Usuário "${usuarioParaExcluir['nome']}" excluído.',
+              ),
+            ),
+          );
+        }
+      } catch (erro) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao excluir usuário: $erro')),
+          );
+        }
+      }
     }
   }
 
   @override
+  void dispose() {
+    _controladorNome.dispose();
+    _controladorEmail.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit:
-          (_) => setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          }),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(12),
-          height: 180,
-          width: 180,
-          decoration: BoxDecoration(
-            color: _backgroundColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 6,
-                offset: Offset(0, 2),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cadastro de Usuários'),
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.primaryContainer,
+      ),
+      backgroundColor: Color.fromARGB(255, 37, 51, 132),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Card(
+              elevation: 3.0,
+              margin: const EdgeInsets.only(bottom: 20.0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.network(widget.image, width: 50, fit: BoxFit.contain),
-              const SizedBox(height: 12),
-              Text(
-                widget.title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _chaveFormulario,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        'Novo Usuário',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.blueGrey[800],
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _controladorNome,
+                        decoration: const InputDecoration(labelText: 'Nome'),
+                        validator: (valor) {
+                          if (valor == null || valor.isEmpty) {
+                            return 'Informe seu nome.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _controladorEmail,
+                        decoration: const InputDecoration(labelText: 'Email'),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (valor) {
+                          if (valor == null || valor.isEmpty) {
+                            return 'Informe seu email.';
+                          }
+                          if (!valor.contains('@') || !valor.contains('.')) {
+                            return 'Informe um email válido.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed:
+                            _adicionarUsuario,
+                        child: const Text('Adicionar Usuário'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Usuários Cadastrados:',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: Colors.blueGrey[800]),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _listaUsuariosCadastrados.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            Icons.people_outline,
+                            size: 60,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Nenhum usuário cadastrado ainda.',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _listaUsuariosCadastrados.length,
+                      itemBuilder: (context, index) {
+                        final usuario = _listaUsuariosCadastrados[index];
+                        return Card(
+                          elevation: 2.0,
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 6.0,
+                            horizontal: 0,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8.0,
+                              horizontal: 16.0,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.secondary,
+                              foregroundColor: Colors.white,
+                              child: Text(
+                                usuario['nome']!.isNotEmpty
+                                    ? usuario['nome']![0].toUpperCase()
+                                    : '?',
+                              ),
+                            ),
+                            title: Text(
+                              usuario['nome'] ?? 'Nome não disponível',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              usuario['email'] ?? 'Email não disponível',
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Colors.red[700],
+                              ),
+                              tooltip: 'Excluir ${usuario['nome']}',
+                              onPressed: () {
+                                _excluirUsuario(index);
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );
