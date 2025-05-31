@@ -65,8 +65,7 @@ class _paginaInicialEstado extends State<paginaInicial> {
   final _chaveFormulario = GlobalKey<FormState>();
 
   List<Map<String, String>> _listaUsuariosCadastrados = [];
-  final String _nomeArquivo =
-      'dados_usuarios.json';
+  final String _nomeArquivo = 'dados_usuarios.json';
 
   @override
   void initState() {
@@ -273,6 +272,78 @@ class _paginaInicialEstado extends State<paginaInicial> {
       }
     }
   }
+  Future<void> _atualizarUsuario(int index) async {
+    final usuarioAtual = _listaUsuariosCadastrados[index];
+    final TextEditingController nomeController = TextEditingController(
+      text: usuarioAtual['nome'],
+    );
+    final TextEditingController emailController = TextEditingController(
+      text: usuarioAtual['email'],
+    );
+    final bool? confirmado = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Atualizar Usuário'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nomeController,
+                decoration: const InputDecoration(labelText: 'Nome'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('Atualizar'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmado == true) {
+      final String novoNome = nomeController.text;
+      final String novoEmail = emailController.text;
+      final Map<String, String> usuarioAtualizado = {
+        'nome': novoNome,
+        'email': novoEmail,
+      };
+      final listaTemporaria = List<Map<String, String>>.from(
+        _listaUsuariosCadastrados,
+      );
+      listaTemporaria[index] = usuarioAtualizado;
+
+      try {
+        await _persistirListaUsuarios(listaTemporaria);
+
+        setState(() {
+          _listaUsuariosCadastrados = listaTemporaria;
+        });
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuário atualizado com sucesso!')),
+        );
+      } catch (erro) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar usuário: $erro')),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -286,9 +357,7 @@ class _paginaInicialEstado extends State<paginaInicial> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cadastro de Usuários'),
-        backgroundColor: Theme.of(
-          context,
-        ).colorScheme.primaryContainer,
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
       backgroundColor: Color.fromARGB(255, 37, 51, 132),
       body: Padding(
@@ -312,8 +381,8 @@ class _paginaInicialEstado extends State<paginaInicial> {
                       Text(
                         'Novo Usuário',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.blueGrey[800],
-                            ),
+                          color: Colors.blueGrey[800],
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -344,8 +413,7 @@ class _paginaInicialEstado extends State<paginaInicial> {
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
-                        onPressed:
-                            _adicionarUsuario,
+                        onPressed: _adicionarUsuario,
                         child: const Text('Adicionar Usuário'),
                       ),
                     ],
@@ -422,15 +490,30 @@ class _paginaInicialEstado extends State<paginaInicial> {
                               usuario['email'] ?? 'Email não disponível',
                               style: TextStyle(color: Colors.grey[700]),
                             ),
-                            trailing: IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Colors.red[700],
-                              ),
-                              tooltip: 'Excluir ${usuario['nome']}',
-                              onPressed: () {
-                                _excluirUsuario(index);
-                              },
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit,
+                                    color: Colors.blueGrey[800],
+                                  ),
+                                  tooltip: 'Editar ${usuario['nome']}',
+                                  onPressed: () {
+                                    _atualizarUsuario(index);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red[700],
+                                  ),
+                                  tooltip: 'Excluir ${usuario['nome']}',
+                                  onPressed: () {
+                                    _excluirUsuario(index);
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         );
